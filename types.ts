@@ -1,52 +1,22 @@
 
-name: Deploy to GitHub Pages
+export interface TurnScore {
+  primary: number;
+  secondary: number;
+}
 
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+export interface PlayerState {
+  name: string;
+  commandPoints: number;
+  scores: Record<number, TurnScore>;
+  secondaryMissions: Record<number, (string | null)[]>;
+}
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+export interface GameState {
+  turn: number;
+  primaryMission: string | null; // Mission ID
+  player1: PlayerState;
+  player2: PlayerState;
+}
 
-concurrency:
-  group: 'pages'
-  cancel-in-progress: true
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          # cache: 'npm' removed because package-lock.json does not exist yet
-          
-      - name: Install dependencies
-        run: npm install
-        
-      - name: Build
-        run: npm run build
-        
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: './dist'
-
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+export type PlayerKey = 'player1' | 'player2';
+export type ScoreType = 'primaryScore' | 'secondaryScore' | 'commandPoints';
