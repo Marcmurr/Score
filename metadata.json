@@ -1,0 +1,5 @@
+{
+  "name": "40k Stream Scoreboard",
+  "description": "A Warhammer 40,000 themed scoreboard designed for OBS streaming. Track Command Points, Primary/Secondary objectives, and game turns for two players, styled after the Tabletop Battles app for easy integration into your live stream.",
+  "requestFramePermissions": []
+}
