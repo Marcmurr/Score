@@ -108,8 +108,8 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
             return (
               <div key={index} className="flex flex-col">
                 {readOnly ? (
-                  <div className="bg-slate-700/50 border border-slate-600 text-white text-sm rounded-lg p-2.5 min-h-[42px] flex items-center">
-                     {mission ? mission.name : <span className="text-gray-500 italic">No Objective Selected</span>}
+                  <div className="bg-slate-700/50 border border-slate-600 text-white text-xl md:text-2xl font-bold font-orbitron tracking-wide rounded-lg p-3 min-h-[50px] flex items-center justify-center text-center shadow-md">
+                     {mission ? mission.name : <span className="text-gray-500 italic text-base font-sans">No Objective Selected</span>}
                   </div>
                 ) : (
                   <select
@@ -124,7 +124,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
                     ))}
                   </select>
                 )}
-                {mission && (
+                {!readOnly && mission && (
                   <div className="mt-2 text-xs text-gray-400 bg-slate-800 p-2 rounded-md">
                     <p>{mission.description}</p>
                   </div>

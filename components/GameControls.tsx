@@ -102,8 +102,8 @@ const GameControls: React.FC<GameControlsProps> = ({
       <div className={`w-full bg-slate-800/70 border-2 border-slate-700 rounded-lg p-3 shadow-lg flex flex-col sm:flex-row items-center gap-4 ${readOnly ? 'justify-end pl-16 md:pl-64' : ''}`}>
         <label htmlFor="primary-mission" className="font-orbitron text-lg text-amber-400 whitespace-nowrap">Primary Mission</label>
         {readOnly ? (
-          <div className="bg-slate-700/50 border border-slate-600 text-white text-sm rounded-lg p-2.5 min-w-[200px] text-right">
-             {selectedMission ? selectedMission.name : <span className="text-gray-500 italic">No Mission Selected</span>}
+          <div className="bg-slate-700/50 border border-slate-600 text-amber-400 text-2xl md:text-3xl font-orbitron font-bold rounded-lg p-3 min-w-[200px] text-right shadow-[0_0_10px_rgba(251,191,36,0.2)]">
+             {selectedMission ? selectedMission.name : <span className="text-gray-500 italic text-lg font-sans">No Mission Selected</span>}
           </div>
         ) : (
           <select
@@ -120,10 +120,10 @@ const GameControls: React.FC<GameControlsProps> = ({
         )}
       </div>
       
-      {/* Mission Description */}
-      {selectedMission && (
-        <div className={`w-full bg-slate-800/50 border-2 border-slate-700 rounded-lg p-3 shadow-inner -mt-2 ${readOnly ? 'pl-16 md:pl-64' : ''}`}>
-          <p className={`text-gray-300 ${readOnly ? 'text-right' : ''}`}>{selectedMission.description}</p>
+      {/* Mission Description - Hidden in readOnly */}
+      {!readOnly && selectedMission && (
+        <div className="w-full bg-slate-800/50 border-2 border-slate-700 rounded-lg p-3 shadow-inner -mt-2">
+          <p className="text-gray-300">{selectedMission.description}</p>
         </div>
       )}
     </div>
