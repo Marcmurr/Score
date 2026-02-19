@@ -49,10 +49,11 @@ const GameControls: React.FC<GameControlsProps> = ({
   
   return (
     <div className="w-full flex flex-col gap-4 mb-4">
-      <div className="w-full flex justify-between items-center bg-slate-800/70 border-2 border-slate-700 rounded-lg p-3 shadow-lg">
-        {/* Left Side: Buttons */}
-        <div className="flex gap-2">
-          {!readOnly && (
+      {/* Top Bar */}
+      <div className={`w-full flex items-center bg-slate-800/70 border-2 border-slate-700 rounded-lg p-3 shadow-lg ${readOnly ? 'justify-end' : 'justify-between'}`}>
+        {/* Left Side: Buttons - Hidden in readOnly */}
+        {!readOnly && (
+          <div className="flex gap-2">
             <button 
               onClick={onReset}
               className="flex items-center gap-2 bg-red-800 hover:bg-red-700 text-white font-bold py-2 px-3 md:px-4 rounded-md transition-colors duration-200 shadow-md border-2 border-red-900 hover:border-red-600"
@@ -61,21 +62,21 @@ const GameControls: React.FC<GameControlsProps> = ({
               <RefreshIcon className="h-5 w-5" />
               <span className="hidden sm:inline">Reset</span>
             </button>
-          )}
-          {!readOnly && onBroadcastClick && (
-            <button 
-              onClick={onBroadcastClick}
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-3 md:px-4 rounded-md transition-colors duration-200 shadow-md border-2 border-indigo-700 hover:border-indigo-400"
-              title="Stream to OBS"
-            >
-              <WifiIcon className="h-5 w-5" />
-              <span className="hidden sm:inline">Stream</span>
-            </button>
-          )}
-        </div>
+            {onBroadcastClick && (
+              <button 
+                onClick={onBroadcastClick}
+                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-3 md:px-4 rounded-md transition-colors duration-200 shadow-md border-2 border-indigo-700 hover:border-indigo-400"
+                title="Stream to OBS"
+              >
+                <WifiIcon className="h-5 w-5" />
+                <span className="hidden sm:inline">Stream</span>
+              </button>
+            )}
+          </div>
+        )}
 
-        {/* Center: Turn Controls */}
-        <div className={`flex items-center gap-3 ${readOnly ? 'mx-auto' : ''}`}>
+        {/* Center: Turn Controls - Pushed right in readOnly */}
+        <div className="flex items-center gap-3">
           {!readOnly && (
             <button onClick={() => onTurnChange(-1)} className="p-2 bg-slate-700 hover:bg-slate-600 rounded-full transition-colors duration-200 border-2 border-slate-600 hover:border-amber-500">
                 <ChevronLeftIcon className="h-6 w-6 text-amber-400"/>
@@ -93,15 +94,15 @@ const GameControls: React.FC<GameControlsProps> = ({
           )}
         </div>
         
-        {/* Spacer for right alignment if needed, or empty div to balance flex space */}
-        {readOnly && <div className="hidden sm:block w-10"></div>}
+        {/* Spacer for centering in interactive mode */}
+        {!readOnly && <div className="hidden sm:block w-10"></div>}
       </div>
 
-      {/* Mission Selection */}
-      <div className="w-full bg-slate-800/70 border-2 border-slate-700 rounded-lg p-3 shadow-lg flex flex-col sm:flex-row items-center gap-4">
+      {/* Mission Selection - Pushed right with padding in readOnly */}
+      <div className={`w-full bg-slate-800/70 border-2 border-slate-700 rounded-lg p-3 shadow-lg flex flex-col sm:flex-row items-center gap-4 ${readOnly ? 'justify-end pl-16 md:pl-64' : ''}`}>
         <label htmlFor="primary-mission" className="font-orbitron text-lg text-amber-400 whitespace-nowrap">Primary Mission</label>
         {readOnly ? (
-          <div className="w-full bg-slate-700/50 border border-slate-600 text-white text-sm rounded-lg p-2.5">
+          <div className="bg-slate-700/50 border border-slate-600 text-white text-sm rounded-lg p-2.5 min-w-[200px] text-right">
              {selectedMission ? selectedMission.name : <span className="text-gray-500 italic">No Mission Selected</span>}
           </div>
         ) : (
@@ -119,9 +120,10 @@ const GameControls: React.FC<GameControlsProps> = ({
         )}
       </div>
       
+      {/* Mission Description */}
       {selectedMission && (
-        <div className="w-full bg-slate-800/50 border-2 border-slate-700 rounded-lg p-3 shadow-inner -mt-2">
-          <p className="text-gray-300">{selectedMission.description}</p>
+        <div className={`w-full bg-slate-800/50 border-2 border-slate-700 rounded-lg p-3 shadow-inner -mt-2 ${readOnly ? 'pl-16 md:pl-64' : ''}`}>
+          <p className={`text-gray-300 ${readOnly ? 'text-right' : ''}`}>{selectedMission.description}</p>
         </div>
       )}
     </div>
