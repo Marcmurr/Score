@@ -1,6 +1,6 @@
 
 import React from 'react';
-import type { GameState } from '../types';
+import type { GameState, TurnScore } from '../types';
 import { SECONDARY_MISSIONS } from '../data/missions';
 
 interface GameSummaryProps {
@@ -18,8 +18,9 @@ const GameSummary: React.FC<GameSummaryProps> = ({ gameState }) => {
     };
 
     const calculateTotals = (player: typeof player1) => {
-        const primary = Object.values(player.scores).reduce((sum, s) => sum + s.primary, 0);
-        const secondary = Object.values(player.scores).reduce((sum, s) => sum + s.secondary, 0);
+        const scores = Object.values(player.scores) as TurnScore[];
+        const primary = scores.reduce((sum, s) => sum + s.primary, 0);
+        const secondary = scores.reduce((sum, s) => sum + s.secondary, 0);
         return { primary, secondary, total: primary + secondary };
     };
 
