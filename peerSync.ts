@@ -64,6 +64,9 @@ export const useHostBroadcast = (hostId: string | null, gameState: GameState) =>
   useEffect(() => {
     if (!hostId) return;
     let peer: Peer | null = null;
+    // A new ID (new links) starts over: nobody is connected to it yet.
+    setStatus('connecting');
+    setViewers(0);
 
     const start = () => {
       const p = new Peer(hostId);

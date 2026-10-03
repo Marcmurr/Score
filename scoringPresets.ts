@@ -44,6 +44,8 @@ const subscribe = (listener: () => void) => {
 // Presets are keyed by mission, so both players share them in a mirror match.
 export const primaryPresetKey = (missionName: string) => `primary:${missionName.trim().toLowerCase()}`;
 export const secondaryPresetKey = (missionId: string) => `secondary:${missionId}`;
+// Stratagems differ by army, so they're remembered per faction.
+export const stratagemPresetKey = (faction: string) => `cp:${faction.trim().toLowerCase()}`;
 
 export const usePresets = (key: string): ScoringPreset[] =>
   useSyncExternalStore(subscribe, () => presets[key] ?? NO_PRESETS);

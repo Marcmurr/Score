@@ -1,7 +1,7 @@
 
 import React from 'react';
 import type { PlayerState, PlayerKey } from '../types';
-import { newScoreEntry, type GameAction } from '../gameReducer';
+import { newCpEntry, newScoreEntry, type GameAction } from '../gameReducer';
 import Stepper from './ui/Stepper';
 import ScoreControl from './ScoreControl';
 import SecondaryMissions from './SecondaryMissions';
@@ -10,13 +10,14 @@ import {
   BATTLE_READY_VP,
   PRIMARY_GAME_CAP,
   PRIMARY_ROUND_CAP,
+  cpBalance,
   headroom,
   primaryInRound,
   primaryTotal,
   secondaryInRound,
   totalScore,
 } from '../scoring';
-import { primaryPresetKey } from '../scoringPresets';
+import { primaryPresetKey, stratagemPresetKey } from '../scoringPresets';
 
 interface PlayerCardProps {
   player: PlayerState;
@@ -40,6 +41,9 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   readOnly = false
 }) => {
   const primaryTarget = { kind: 'primary' } as const;
+  const cpThisRound = player.cpLog.filter(entry => entry.round === round);
+  const cpGained = cpThisRound.reduce((sum, entry) => sum + Math.max(0, entry.delta), 0);
+  const cpSpent = cpThisRound.reduce((sum, entry) => sum - Math.min(0, entry.delta), 0);
   const dispositionName = getDispositionName(player.forceDisposition);
 
   return (
@@ -88,10 +92,10 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
         <div className="flex flex-col items-center gap-2 p-2 bg-slate-900/50 rounded-md">
           <span className="text-sm font-bold uppercase tracking-wider text-gray-400">Command Points</span>
           <Stepper
-            value={player.commandPoints}
+            value={cpBalance(player)}
             label="Command Points"
             readOnly={readOnly}
-            onChange={(delta) => dispatch({ type: 'changeCommandPoints', player: playerKey, delta })}
+            onChange={(delta) => dispatch({ type: 'logCommandPoints', player: playerKey, entry: newCpEntry(round, delta) })}
           />
         </div>
 
@@ -114,6 +118,26 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
           )}
         </div>
       </div>
+
+      {/* Command Points history: +/- above logs plain changes; stratagems are logged by name */}
+      {!readOnly && (
+        <div className="flex flex-col gap-2 p-3 bg-slate-900/50 rounded-md">
+          <p className="text-xs text-gray-400">
+            <span className="font-bold uppercase tracking-wider">CP round {round}:</span>{' '}
+            <span className="text-white">+{cpGained}</span> gained · <span className="text-white">−{cpSpent}</span> spent
+          </p>
+          <ScoreControl
+            mode="spend"
+            label="Command Points"
+            scores={player.cpLog.map(entry => ({ id: entry.id, round: entry.round, vp: entry.delta, reason: entry.reason, at: entry.at }))}
+            round={round}
+            headroom={cpBalance(player)}
+            presetKey={stratagemPresetKey(player.faction)}
+            onAdd={(cost, stratagem) => dispatch({ type: 'logCommandPoints', player: playerKey, entry: newCpEntry(round, -cost, stratagem) })}
+            onRemove={(entryId) => dispatch({ type: 'removeCommandPoints', player: playerKey, entryId })}
+          />
+        </div>
+      )}
 
       {/* Primary Mission: each player has their own, set by the Force Disposition pairing */}
       <div className="flex flex-col gap-2 p-3 bg-slate-900/50 rounded-md">

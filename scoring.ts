@@ -30,6 +30,8 @@ export const secondaryInRound = (player: PlayerState, round: number): number =>
 export const secondaryTotal = (player: PlayerState): number =>
   countedSecondaryScores(player).reduce((sum, scores) => sum + sumScores(scores), 0);
 
+export const cpBalance = (player: PlayerState): number => player.cpLog.reduce((sum, entry) => sum + entry.delta, 0);
+
 export const totalScore = (player: PlayerState): number =>
   primaryTotal(player) + secondaryTotal(player) + (player.battleReady ? BATTLE_READY_VP : 0);
 

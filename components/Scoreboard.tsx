@@ -5,7 +5,7 @@ import GameControls from './GameControls';
 import GameSummary from './GameSummary';
 import type { GameState } from '../types';
 import { SUMMARY_ROUND, createInitialGameState, gameReducer } from '../gameReducer';
-import { getHostId, loadSavedGame, saveGame } from '../storage';
+import { createHostId, getHostId, loadSavedGame, saveGame } from '../storage';
 import { describeHostStatus, describeViewerStatus, useHostBroadcast, useViewerSync } from '../peerSync';
 import { FACTIONS } from '../data/factions';
 
@@ -26,7 +26,7 @@ const Scoreboard: React.FC = () => {
   // A `watch` link opens the read-only overlay for that host; otherwise this is the host.
   const watchId = useMemo(() => new URLSearchParams(window.location.search).get('watch') || null, []);
   const isReadOnly = watchId !== null;
-  const hostId = useMemo(() => (isReadOnly ? null : getHostId()), [isReadOnly]);
+  const [hostId, setHostId] = useState(() => (isReadOnly ? null : getHostId()));
 
   const [gameState, dispatch] = useReducer(
     gameReducer,
@@ -66,6 +66,13 @@ const Scoreboard: React.FC = () => {
     url.searchParams.set('watch', hostId ?? '');
     if (link === 'stats') url.searchParams.set('view', 'stats');
     return url.toString();
+  };
+
+  const handleNewLinks = () => {
+    if (window.confirm('Create new links? The current overlay and stats links will stop working, so you will need to update OBS and share the new stats link.')) {
+      setHostId(createHostId());
+      setCopiedLink(null);
+    }
   };
 
   const copyToClipboard = (link: ShareLink) => {
@@ -152,6 +159,18 @@ const Scoreboard: React.FC = () => {
                 </div>
               </div>
             ))}
+
+            <div className="mb-4 border-t border-slate-700 pt-3">
+              <p className="text-xs text-gray-400 mb-2">
+                Shared a link somewhere it shouldn't be? New links stop the current ones working.
+              </p>
+              <button
+                onClick={handleNewLinks}
+                className="bg-slate-700 hover:bg-red-800 text-white text-sm font-bold py-2 px-4 rounded-lg border border-slate-600 hover:border-red-600 transition-colors duration-200"
+              >
+                New links
+              </button>
+            </div>
 
             <div className="flex justify-center">
               <button 

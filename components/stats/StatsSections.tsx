@@ -7,6 +7,7 @@ import {
   FIXED_SECONDARY_CAP,
   PRIMARY_GAME_CAP,
   SECONDARY_GAME_CAP,
+  cpBalance,
   primaryInRound,
   primaryTotal,
   remainingPotential,
@@ -20,6 +21,7 @@ import {
   LAST_ROUND,
   PLAYER_COLORS,
   cardMovesInRound,
+  cpInRound,
   latestScores,
   otherPlayer,
   playedRounds,
@@ -71,7 +73,7 @@ export const ScoreHeader: React.FC<{ state: GameState }> = ({ state }) => {
                 <dt className="text-gray-400">Battle Ready</dt>
                 <dd className="text-white text-right">{player.battleReady ? `+${BATTLE_READY_VP}` : '—'}</dd>
                 <dt className="text-gray-400">CP left</dt>
-                <dd className="text-white text-right font-bold">{player.commandPoints}</dd>
+                <dd className="text-white text-right font-bold">{cpBalance(player)}</dd>
               </dl>
               {(player.primaryMission || disposition) && (
                 <p className="mt-3 text-xs sm:text-sm text-gray-300 border-t border-slate-700 pt-2">
@@ -107,12 +109,29 @@ const ScoreLineList: React.FC<{ lines: ReturnType<typeof scoreLines> }> = ({ lin
   </ul>
 );
 
+// e.g. "+1 gained · −3 spent on Command Re-roll ×2 (2 CP), Overwatch (1 CP)"
+const describeCpRound = (cp: ReturnType<typeof cpInRound>) => {
+  const named = new Map<string, { count: number; cost: number }>();
+  cp.stratagems
+    .filter(s => s.name !== 'Unnamed')
+    .forEach(s => {
+      const total = named.get(s.name) ?? { count: 0, cost: 0 };
+      named.set(s.name, { count: total.count + 1, cost: total.cost + s.cost });
+    });
+  const uses = [...named].map(([name, { count, cost }]) => `${name}${count > 1 ? ` ×${count}` : ''} (${cost} CP)`);
+  return [
+    cp.gained > 0 && `+${cp.gained} gained`,
+    cp.spent > 0 && `−${cp.spent} spent${uses.length ? ` on ${uses.join(', ')}` : ''}`,
+  ].filter(Boolean).join(' · ');
+};
+
 const PlayerRound: React.FC<{ state: GameState; player: PlayerKey; round: number }> = ({ state, player: key, round }) => {
   const player = state[key];
   const lines = scoreLines(player).filter(line => line.round === round);
   const primary = primaryInRound(player, round);
   const secondary = secondaryInRound(player, round);
   const moves = cardMovesInRound(player, round);
+  const cp = cpInRound(player, round);
   return (
     <div className="flex flex-col gap-1 text-sm min-w-0">
       <div className="flex items-center justify-between gap-2">
@@ -134,6 +153,9 @@ const PlayerRound: React.FC<{ state: GameState; player: PlayerKey; round: number
           <p className="flex justify-between text-gray-400 text-xs uppercase tracking-wider ml-4 mt-1"><span>Secondary</span><span>+{secondary}</span></p>
           <ScoreLineList lines={lines.filter(line => line.kind === 'secondary')} />
         </>
+      )}
+      {(cp.gained > 0 || cp.spent > 0) && (
+        <p className="ml-4 mt-1 text-xs text-gray-400">CP: {describeCpRound(cp)}</p>
       )}
       {(moves.drawn.length > 0 || moves.discarded.length > 0) && (
         <p className="ml-4 mt-1 text-xs text-gray-400">
@@ -323,6 +345,54 @@ export const PlayerMissions: React.FC<{ state: GameState; player: PlayerKey }> =
           </>
         )}
       </div>
+
+      <CommandPoints state={state} player={key} />
     </section>
+  );
+};
+
+// CP gained, spent and left each round, and every stratagem used.
+const CommandPoints: React.FC<{ state: GameState; player: PlayerKey }> = ({ state, player: key }) => {
+  const player = state[key];
+  const rounds = playedRounds(state);
+  const perRound = rounds.map(round => ({ round, ...cpInRound(player, round) }));
+  const stratagems = perRound.flatMap(r => r.stratagems.map(s => ({ ...s, round: r.round })));
+  const gained = perRound.reduce((sum, r) => sum + r.gained, 0);
+  const spent = perRound.reduce((sum, r) => sum + r.spent, 0);
+  return (
+    <div>
+      <h3 className="text-xs uppercase tracking-wider text-gray-400 mb-1">
+        Command points · gained {gained} · spent {spent} · left {cpBalance(player)}
+      </h3>
+      <table className="w-full text-sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
+        <thead className="text-xs text-gray-400">
+          <tr>
+            <th scope="col" className="py-1 pr-2 text-left font-normal">Round</th>
+            <th scope="col" className="py-1 px-2 text-right font-normal">Gained</th>
+            <th scope="col" className="py-1 px-2 text-right font-normal">Spent</th>
+            <th scope="col" className="py-1 pl-2 text-right font-normal">Left</th>
+          </tr>
+        </thead>
+        <tbody>
+          {perRound.map(r => (
+            <tr key={r.round} className="border-t border-slate-700">
+              <th scope="row" className="py-1 pr-2 text-left font-normal text-gray-300">{r.round}</th>
+              <td className="py-1 px-2 text-right text-white">{r.gained ? `+${r.gained}` : '—'}</td>
+              <td className="py-1 px-2 text-right text-white">{r.spent ? `−${r.spent}` : '—'}</td>
+              <td className="py-1 pl-2 text-right text-white font-bold">{r.leftAfter}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {stratagems.length > 0 && (
+        <ul className="mt-2 text-xs text-gray-300">
+          {stratagems.map(s => (
+            <li key={s.id} className="flex justify-between">
+              <span>R{s.round} · {s.name}</span><span>−{s.cost} CP</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 };

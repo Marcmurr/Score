@@ -1,16 +1,16 @@
 
-import type { GameState, PlayerKey, PlayerState, ScoreEntry, ScoreTarget } from './types';
-import { headroom, scoresFor } from './scoring';
+import type { CpEntry, GameState, PlayerKey, PlayerState, ScoreEntry, ScoreTarget } from './types';
+import { cpBalance, headroom, scoresFor } from './scoring';
 
 // Bump when the shape of GameState changes, and teach parseGameState to
 // upgrade the previous version.
-export const STATE_VERSION = 3;
+export const STATE_VERSION = 4;
 export const SUMMARY_ROUND = 6;
 
 const createPlayer = (name: string): PlayerState => ({
   name,
   faction: '',
-  commandPoints: 0,
+  cpLog: [],
   battleReady: false,
   forceDisposition: null,
   primaryMission: '',
@@ -31,20 +31,25 @@ export const createInitialGameState = (): GameState => ({
 export const isGameState = (data: unknown): data is GameState =>
   typeof data === 'object' && data !== null && (data as GameState).version === STATE_VERSION;
 
+// Version 3 kept only the current Command Points; they become one entry without a reason.
+type V3Player = Omit<PlayerState, 'cpLog'> & { commandPoints: number };
+type V3State = Omit<GameState, 'player1' | 'player2'> & { player1: V3Player; player2: V3Player };
+
 // Version 2 kept only a VP total per round; each becomes one entry without a reason.
 type RoundVP = Record<string, number>;
-type V2Player = Omit<PlayerState, 'faction' | 'primaryScores' | 'fixedSecondaries' | 'tacticalSecondaries'> & {
+type V2Player = Omit<V3Player, 'faction' | 'primaryScores' | 'fixedSecondaries' | 'tacticalSecondaries'> & {
   primaryVP: RoundVP;
   fixedSecondaries: { missionId: string | null; vp: RoundVP }[];
   tacticalSecondaries: (Omit<PlayerState['tacticalSecondaries'][number], 'scores'> & { vp: RoundVP })[];
 };
+type V2State = { version: 2; round: number; player1: V2Player; player2: V2Player };
 
 const entriesFromRoundVP = (vp: RoundVP, idPrefix: string): ScoreEntry[] =>
   Object.entries(vp)
     .filter(([, value]) => value > 0)
     .map(([round, value]) => ({ id: `${idPrefix}-r${round}`, round: Number(round), vp: value, reason: '', at: 0 }));
 
-const upgradeV2Player = (player: V2Player, key: PlayerKey): PlayerState => {
+const upgradeV2Player = (player: V2Player, key: PlayerKey): V3Player => {
   const { primaryVP, fixedSecondaries, tacticalSecondaries, ...rest } = player;
   return {
     ...rest,
@@ -61,21 +66,37 @@ const upgradeV2Player = (player: V2Player, key: PlayerKey): PlayerState => {
   };
 };
 
+const upgradeV3Player = ({ commandPoints, ...player }: V3Player, key: PlayerKey): PlayerState => ({
+  ...player,
+  cpLog: commandPoints > 0 ? [{ id: `${key}-cp-start`, round: 1, delta: commandPoints, reason: '', at: 0 }] : [],
+});
+
+// Each step upgrades a saved or streamed game by one version.
+const UPGRADES: Record<number, (data: never) => unknown> = {
+  2: (old: V2State): V3State => ({
+    version: 3,
+    round: old.round,
+    firstPlayer: null,
+    player1: upgradeV2Player(old.player1, 'player1'),
+    player2: upgradeV2Player(old.player2, 'player2'),
+  }),
+  3: (old: V3State): GameState => ({
+    ...old,
+    version: 4,
+    player1: upgradeV3Player(old.player1, 'player1'),
+    player2: upgradeV3Player(old.player2, 'player2'),
+  }),
+};
+
 // Accepts a game state from storage or from the host, upgrading older versions.
 export const parseGameState = (data: unknown): GameState | null => {
-  if (isGameState(data)) return data;
-  if (typeof data !== 'object' || data === null) return null;
-  const old = data as { version?: number; round: number; player1: V2Player; player2: V2Player };
-  if (old.version === 2) {
-    return {
-      version: STATE_VERSION,
-      round: old.round,
-      firstPlayer: null,
-      player1: upgradeV2Player(old.player1, 'player1'),
-      player2: upgradeV2Player(old.player2, 'player2'),
-    };
+  let current = data;
+  while (typeof current === 'object' && current !== null && !isGameState(current)) {
+    const upgrade = UPGRADES[(current as { version?: number }).version ?? -1];
+    if (!upgrade) return null;
+    current = upgrade(current as never);
   }
-  return null;
+  return isGameState(current) ? current : null;
 };
 
 export type PlayerChanges = Partial<
@@ -84,7 +105,8 @@ export type PlayerChanges = Partial<
 
 type PlayerAction =
   | { type: 'updatePlayer'; player: PlayerKey; changes: PlayerChanges }
-  | { type: 'changeCommandPoints'; player: PlayerKey; delta: number }
+  | { type: 'logCommandPoints'; player: PlayerKey; entry: CpEntry }
+  | { type: 'removeCommandPoints'; player: PlayerKey; entryId: string }
   | { type: 'addScore'; player: PlayerKey; target: ScoreTarget; entry: ScoreEntry }
   | { type: 'removeScore'; player: PlayerKey; target: ScoreTarget; entryId: string }
   | { type: 'setFixedSecondary'; player: PlayerKey; slot: 0 | 1; missionId: string | null }
@@ -130,8 +152,19 @@ const playerReducer = (player: PlayerState, action: PlayerAction): PlayerState =
     case 'updatePlayer':
       return { ...player, ...action.changes };
 
-    case 'changeCommandPoints':
-      return { ...player, commandPoints: Math.max(0, player.commandPoints + action.delta) };
+    case 'logCommandPoints': {
+      // Spending is limited to the CP the player has.
+      const delta = Math.max(Math.trunc(action.entry.delta), -cpBalance(player));
+      if (delta === 0) return player;
+      return { ...player, cpLog: [...player.cpLog, { ...action.entry, delta }] };
+    }
+
+    case 'removeCommandPoints': {
+      const cpLog = player.cpLog.filter(entry => entry.id !== action.entryId);
+      // Removing a gain that was already spent would leave negative CP.
+      if (cpLog.reduce((sum, entry) => sum + entry.delta, 0) < 0) return player;
+      return { ...player, cpLog };
+    }
 
     case 'addScore': {
       // Scores past a cap are trimmed to what still fits.
@@ -210,8 +243,12 @@ export const gameReducer = (state: GameState, action: GameAction): GameState => 
   }
 };
 
+const newEntryId = () => `${Date.now().toString(36)}-${crypto.getRandomValues(new Uint32Array(1))[0].toString(36)}`;
+
 // Creates a score entry for an addScore action.
-export const newScoreEntry = (round: number, vp: number, reason: string): ScoreEntry => {
-  const random = crypto.getRandomValues(new Uint32Array(1))[0].toString(36);
-  return { id: `${Date.now().toString(36)}-${random}`, round, vp, reason: reason.trim(), at: Date.now() };
-};
+export const newScoreEntry = (round: number, vp: number, reason: string): ScoreEntry =>
+  ({ id: newEntryId(), round, vp, reason: reason.trim(), at: Date.now() });
+
+// Creates a Command Points entry for a logCommandPoints action (negative `delta` to spend).
+export const newCpEntry = (round: number, delta: number, reason = ''): CpEntry =>
+  ({ id: newEntryId(), round, delta, reason: reason.trim(), at: Date.now() });

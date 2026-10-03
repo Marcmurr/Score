@@ -12,6 +12,15 @@ export interface ScoreEntry {
   at: number; // When it was recorded (ms since epoch), for ordering the score feed
 }
 
+// A change to a player's Command Points: positive when gained, negative when spent.
+export interface CpEntry {
+  id: string;
+  round: number;
+  delta: number;
+  reason: string; // e.g. the stratagem used; empty when not given
+  at: number;
+}
+
 export interface FixedSecondary {
   missionId: string | null;
   scores: ScoreEntry[];
@@ -28,7 +37,7 @@ export interface TacticalSecondary {
 export interface PlayerState {
   name: string;
   faction: string;
-  commandPoints: number;
+  cpLog: CpEntry[]; // Command Points history; the current CP is the sum
   battleReady: boolean;
   forceDisposition: string | null; // Force Disposition ID
   primaryMission: string; // Name from the Force Disposition matrix

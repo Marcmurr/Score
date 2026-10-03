@@ -25,7 +25,7 @@ export const saveGame = (state: GameState): void => {
   }
 };
 
-// The host's PeerJS ID is part of the stream link, so it is kept across
+// The host's PeerJS ID is part of the share links, so it is kept across
 // reloads to avoid having to update the link in OBS.
 export const getHostId = (): string => {
   try {
@@ -34,7 +34,11 @@ export const getHostId = (): string => {
   } catch {
     // Fall through to a new ID.
   }
+  return createHostId();
+};
 
+// Replaces the host ID, so links shared with the old one stop working.
+export const createHostId = (): string => {
   const bytes = crypto.getRandomValues(new Uint8Array(8));
   const id = `score-${Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')}`;
   try {

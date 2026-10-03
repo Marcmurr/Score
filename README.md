@@ -10,7 +10,8 @@ Live app: https://marcmurr.github.io/Score/
 
 ## Features
 
-- Command Points, faction, and who goes first
+- Faction and who goes first
+- Command Points history: the +/− buttons log each change, and stratagems can be logged by name (remembered per faction as one-tap buttons)
 - Each player's Force Disposition and Primary Mission
 - Every score records how it was scored (for example "Held 2 objectives +5"). Reasons you type are remembered per mission as one-tap buttons on this device.
 - Tactical secondaries (cards stay in hand until scored or discarded) or Fixed secondaries
@@ -23,9 +24,9 @@ Live app: https://marcmurr.github.io/Score/
 Open the app on the device you'll keep score on and press **Stream**. It offers two links:
 
 - **OBS overlay:** in OBS, add a **Browser Source** and paste this link.
-- **Stats page:** share this with viewers. It works on phones, tablets and PCs, and shows totals, CP left, factions, who went first, what was scored each round and how, a score-over-time chart, each player's missions, and how many VP each player can still score. Viewers can set a **stream delay** so the page doesn't reveal scores before the video stream shows them.
+- **Stats page:** share this with viewers. It works on phones, tablets and PCs, and shows totals, CP left, factions, who went first, what was scored each round and how, CP gained and spent each round and on which stratagems, a score-over-time chart, each player's missions, and how many VP each player can still score. Viewers can set a **stream delay** so the page doesn't reveal scores before the video stream shows them.
 
-The links stay the same when you reload the scoreboard, so you only need to share them once. The overlay reconnects on its own if the connection drops, and shows a notice while it's reconnecting. Keep only one scoreboard tab open: two tabs in the same browser share a stream link and will compete for it.
+The links stay the same when you reload the scoreboard, so you only need to share them once. If a link ends up somewhere it shouldn't, press **New links** in the same dialog: the old links stop working straight away, and you share the new ones. The overlay reconnects on its own if the connection drops, and shows a notice while it's reconnecting. Keep only one scoreboard tab open: two tabs in the same browser share a stream link and will compete for it.
 
 The connection uses the free public [PeerJS](https://peerjs.com/) server to find the scoreboard, then streams directly from the scoreboard device to each viewer. That suits a small audience: every viewer adds load to the scoreboard device, and very strict networks that block direct connections can stop a viewer from connecting.
 

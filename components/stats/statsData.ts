@@ -107,3 +107,23 @@ export const tacticalSummary = (player: PlayerState): CardSummary => {
     averageScored: scored.length ? scored.reduce((sum, card) => sum + sumScores(card.scores), 0) / scored.length : null,
   };
 };
+
+export interface CpRound {
+  gained: number;
+  spent: number;
+  stratagems: { id: string; name: string; cost: number }[];
+  leftAfter: number;
+}
+
+// Command Points gained and spent in `round`, what they were spent on, and CP left after it.
+export const cpInRound = (player: PlayerState, round: number): CpRound => {
+  const entries = player.cpLog.filter(entry => entry.round === round);
+  return {
+    gained: entries.reduce((sum, entry) => sum + Math.max(0, entry.delta), 0),
+    spent: entries.reduce((sum, entry) => sum - Math.min(0, entry.delta), 0),
+    stratagems: entries
+      .filter(entry => entry.delta < 0)
+      .map(entry => ({ id: entry.id, name: entry.reason || 'Unnamed', cost: -entry.delta })),
+    leftAfter: player.cpLog.reduce((sum, entry) => (entry.round <= round ? sum + entry.delta : sum), 0),
+  };
+};
