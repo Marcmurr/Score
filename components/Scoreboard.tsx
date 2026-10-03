@@ -1,39 +1,13 @@
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
-import type { GameState, PlayerKey, ScoreType } from '../types';
+import React, { useReducer, useState, useCallback, useEffect, useRef } from 'react';
 import PlayerCard from './PlayerCard';
 import GameControls from './GameControls';
 import GameSummary from './GameSummary';
 import { Peer, DataConnection } from 'peerjs';
-
-const initialPlayerState = {
-  name: 'Player',
-  commandPoints: 0,
-  scores: {
-    1: { primary: 0, secondary: 0 },
-    2: { primary: 0, secondary: 0 },
-    3: { primary: 0, secondary: 0 },
-    4: { primary: 0, secondary: 0 },
-    5: { primary: 0, secondary: 0 },
-  },
-  secondaryMissions: {
-    1: [null, null],
-    2: [null, null],
-    3: [null, null],
-    4: [null, null],
-    5: [null, null],
-  },
-};
-
-const initialGameState: GameState = {
-  turn: 1,
-  primaryMission: null,
-  player1: { ...initialPlayerState, name: 'Player 1' },
-  player2: { ...initialPlayerState, name: 'Player 2' },
-};
+import { SUMMARY_ROUND, createInitialGameState, gameReducer, isGameState } from '../gameReducer';
 
 const Scoreboard: React.FC = () => {
-  const [gameState, setGameState] = useState<GameState>(initialGameState);
+  const [gameState, dispatch] = useReducer(gameReducer, undefined, createInitialGameState);
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [showBroadcastModal, setShowBroadcastModal] = useState(false);
   const [peerId, setPeerId] = useState<string>('');
@@ -42,6 +16,9 @@ const Scoreboard: React.FC = () => {
   // PeerJS refs
   const peerRef = useRef<Peer | null>(null);
   const connectionsRef = useRef<DataConnection[]>([]);
+  // Latest state, for sending to viewers from inside long-lived PeerJS callbacks
+  const gameStateRef = useRef(gameState);
+  gameStateRef.current = gameState;
   
   // Initialize PeerJS
   useEffect(() => {
@@ -73,9 +50,12 @@ const Scoreboard: React.FC = () => {
           console.log('Connected to host');
         });
         
-        conn.on('data', (data: any) => {
-          console.log('Received game state');
-          setGameState(data);
+        conn.on('data', (data: unknown) => {
+          if (isGameState(data)) {
+            dispatch({ type: 'sync', state: data });
+          } else {
+            console.warn('Ignoring game state from an incompatible scoreboard version');
+          }
         });
         
         conn.on('close', () => {
@@ -103,11 +83,7 @@ const Scoreboard: React.FC = () => {
         
         // Send current state immediately upon connection
         conn.on('open', () => {
-            // We use a functional update ref or just read current state?
-            // Since this runs in a closure, we need to be careful.
-            // But we can trigger a sync effect instead.
-            // For now, let's just push it.
-             conn.send(gameState);
+          conn.send(gameStateRef.current);
         });
         
         conn.on('close', () => {
@@ -131,80 +107,16 @@ const Scoreboard: React.FC = () => {
   }, [gameState, isReadOnly]);
 
 
-  const handleNameChange = useCallback((playerKey: PlayerKey, newName: string) => {
-    setGameState(prev => ({
-      ...prev,
-      [playerKey]: { ...prev[playerKey], name: newName },
-    }));
+  const handleRoundChange = useCallback((delta: number) => {
+    dispatch({ type: 'changeRound', delta });
   }, []);
 
-  const handleScoreChange = useCallback((playerKey: PlayerKey, scoreType: ScoreType, delta: number, turn?: number) => {
-    setGameState(prev => {
-      const newState = JSON.parse(JSON.stringify(prev)) as GameState;
-      const playerState = newState[playerKey];
-
-      if (scoreType === 'commandPoints') {
-        playerState.commandPoints = Math.max(0, playerState.commandPoints + delta);
-      } else if (turn) {
-        const scoreCategory = scoreType === 'primaryScore' ? 'primary' : 'secondary';
-        const maxScore = scoreType === 'primaryScore' ? 50 : 40;
-
-        const currentTotal = Object.values(playerState.scores).reduce((sum, turnScore) => sum + turnScore[scoreCategory], 0);
-        const currentTurnScore = playerState.scores[turn][scoreCategory];
-
-        let newTurnScore = currentTurnScore + delta;
-        
-        if (delta > 0 && currentTotal + delta > maxScore) {
-          newTurnScore = currentTurnScore + (maxScore - currentTotal);
-        }
-        
-        newTurnScore = Math.max(0, newTurnScore);
-        
-        playerState.scores[turn][scoreCategory] = newTurnScore;
-      }
-
-      return newState;
-    });
-  }, []);
-  
-  const handleTurnChange = useCallback((delta: number) => {
-    setGameState(prev => ({
-      ...prev,
-      turn: Math.max(1, Math.min(6, prev.turn + delta)),
-    }));
-  }, []);
-  
   const handleReset = useCallback(() => {
     if (window.confirm('Are you sure you want to reset the game? All scores will be lost.')) {
-      setGameState(initialGameState);
+      dispatch({ type: 'reset' });
     }
   }, []);
   
-  const handlePrimaryMissionChange = useCallback((missionId: string) => {
-    setGameState(prev => ({
-      ...prev,
-      primaryMission: missionId === 'none' ? null : missionId,
-    }));
-  }, []);
-
-  const handleSecondaryMissionChange = useCallback((playerKey: PlayerKey, slotIndex: number, missionId: string) => {
-    setGameState(prev => {
-      const { turn } = prev;
-      const newMissions = { ...prev[playerKey].secondaryMissions };
-      const turnMissions = [...(newMissions[turn] || [null, null])];
-      turnMissions[slotIndex] = missionId === 'none' ? null : missionId;
-      newMissions[turn] = turnMissions;
-
-      return {
-        ...prev,
-        [playerKey]: {
-          ...prev[playerKey],
-          secondaryMissions: newMissions,
-        },
-      };
-    });
-  }, []);
-
   const handleBroadcastClick = () => {
     setShowBroadcastModal(true);
     setCopySuccess(false);
@@ -231,32 +143,26 @@ const Scoreboard: React.FC = () => {
         }}
       >
         <GameControls 
-          turn={gameState.turn} 
-          onTurnChange={handleTurnChange} 
+          round={gameState.round} 
+          onRoundChange={handleRoundChange} 
           onReset={handleReset}
-          primaryMission={gameState.primaryMission}
-          onPrimaryMissionChange={handlePrimaryMissionChange}
           readOnly={isReadOnly}
           onBroadcastClick={handleBroadcastClick}
         />
-        {gameState.turn <= 5 ? (
+        {gameState.round < SUMMARY_ROUND ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <PlayerCard 
               player={gameState.player1} 
               playerKey="player1"
-              turn={gameState.turn}
-              onNameChange={handleNameChange}
-              onScoreChange={handleScoreChange}
-              onSecondaryMissionChange={handleSecondaryMissionChange}
+              round={gameState.round}
+              dispatch={dispatch}
               readOnly={isReadOnly}
             />
             <PlayerCard 
               player={gameState.player2} 
               playerKey="player2"
-              turn={gameState.turn}
-              onNameChange={handleNameChange}
-              onScoreChange={handleScoreChange}
-              onSecondaryMissionChange={handleSecondaryMissionChange}
+              round={gameState.round}
+              dispatch={dispatch}
               readOnly={isReadOnly}
             />
           </div>

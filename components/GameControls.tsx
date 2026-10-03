@@ -1,13 +1,10 @@
 
 import React from 'react';
-import { PRIMARY_MISSIONS } from '../data/missions';
 
 interface GameControlsProps {
-  turn: number;
-  onTurnChange: (delta: number) => void;
+  round: number;
+  onRoundChange: (delta: number) => void;
   onReset: () => void;
-  primaryMission: string | null;
-  onPrimaryMissionChange: (missionId: string) => void;
   readOnly?: boolean;
   onBroadcastClick?: () => void;
 }
@@ -37,16 +34,12 @@ const WifiIcon: React.FC<{className?: string}> = ({className}) => (
 );
 
 const GameControls: React.FC<GameControlsProps> = ({ 
-  turn, 
-  onTurnChange, 
+  round, 
+  onRoundChange, 
   onReset, 
-  primaryMission, 
-  onPrimaryMissionChange,
   readOnly = false,
   onBroadcastClick
 }) => {
-  const selectedMission = PRIMARY_MISSIONS.find(m => m.id === primaryMission);
-  
   return (
     <div className="w-full flex flex-col gap-4 mb-4">
       {/* Top Bar */}
@@ -75,20 +68,20 @@ const GameControls: React.FC<GameControlsProps> = ({
           </div>
         )}
 
-        {/* Center: Turn Controls - Pushed right in readOnly */}
-        <div className="flex items-center gap-3">
+        {/* Center: Round Controls - Pushed right in readOnly */}
+        <div className="flex items-center gap-1 sm:gap-3">
           {!readOnly && (
-            <button onClick={() => onTurnChange(-1)} className="p-2 bg-slate-700 hover:bg-slate-600 rounded-full transition-colors duration-200 border-2 border-slate-600 hover:border-amber-500">
+            <button onClick={() => onRoundChange(-1)} aria-label="Previous round" className="p-2 bg-slate-700 hover:bg-slate-600 rounded-full transition-colors duration-200 border-2 border-slate-600 hover:border-amber-500">
                 <ChevronLeftIcon className="h-6 w-6 text-amber-400"/>
             </button>
           )}
           
-          <span className="font-orbitron text-2xl text-amber-400 w-28 text-center">
-            {turn <= 5 ? `Turn ${turn}` : 'Summary'}
+          <span className="font-orbitron text-base sm:text-2xl text-amber-400 w-24 sm:w-36 text-center whitespace-nowrap">
+            {round <= 5 ? `Round ${round}` : 'Summary'}
           </span>
           
           {!readOnly && (
-            <button onClick={() => onTurnChange(1)} className="p-2 bg-slate-700 hover:bg-slate-600 rounded-full transition-colors duration-200 border-2 border-slate-600 hover:border-amber-500">
+            <button onClick={() => onRoundChange(1)} aria-label="Next round" className="p-2 bg-slate-700 hover:bg-slate-600 rounded-full transition-colors duration-200 border-2 border-slate-600 hover:border-amber-500">
                 <ChevronRightIcon className="h-6 w-6 text-amber-400"/>
             </button>
           )}
@@ -97,35 +90,6 @@ const GameControls: React.FC<GameControlsProps> = ({
         {/* Spacer for centering in interactive mode */}
         {!readOnly && <div className="hidden sm:block w-10"></div>}
       </div>
-
-      {/* Mission Selection - Pushed right with padding in readOnly */}
-      <div className={`w-full bg-slate-800/70 border-2 border-slate-700 rounded-lg p-3 shadow-lg flex flex-col sm:flex-row items-center gap-4 ${readOnly ? 'justify-end pl-16 md:pl-64' : ''}`}>
-        <label htmlFor="primary-mission" className="font-orbitron text-lg text-amber-400 whitespace-nowrap">Primary Mission</label>
-        {readOnly ? (
-          <div className="bg-slate-700/50 border border-slate-600 text-amber-400 text-2xl md:text-3xl font-orbitron font-bold rounded-lg p-3 min-w-[200px] text-right shadow-[0_0_10px_rgba(251,191,36,0.2)]">
-             {selectedMission ? selectedMission.name : <span className="text-gray-500 italic text-lg font-sans">No Mission Selected</span>}
-          </div>
-        ) : (
-          <select
-            id="primary-mission"
-            value={primaryMission || 'none'}
-            onChange={(e) => onPrimaryMissionChange(e.target.value)}
-            className="bg-slate-700 border border-slate-600 text-white text-sm rounded-lg focus:ring-amber-500 focus:border-amber-500 block w-full p-2.5"
-          >
-            <option value="none" disabled>Select a mission</option>
-            {PRIMARY_MISSIONS.map(mission => (
-              <option key={mission.id} value={mission.id}>{mission.name}</option>
-            ))}
-          </select>
-        )}
-      </div>
-      
-      {/* Mission Description - Hidden in readOnly */}
-      {!readOnly && selectedMission && (
-        <div className="w-full bg-slate-800/50 border-2 border-slate-700 rounded-lg p-3 shadow-inner -mt-2">
-          <p className="text-gray-300">{selectedMission.description}</p>
-        </div>
-      )}
     </div>
   );
 };
