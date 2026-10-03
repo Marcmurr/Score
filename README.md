@@ -2,19 +2,45 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
+# 40k Stream Scoreboard
 
-This contains everything you need to run your app locally.
+A Warhammer 40,000 (11th edition) scoreboard for live streams. Keep score on a tablet or phone, show the board in OBS, and give viewers a live stats page, all updating in real time.
 
-View your app in AI Studio: https://ai.studio/apps/drive/13pSEkm10M3yNAouPxoJVxN2fw9g-taDJ
+Live app: https://marcmurr.github.io/Score/
 
-## Run Locally
+## Features
 
-**Prerequisites:**  Node.js
+- Faction and who goes first
+- Command Points history: the +/− buttons log each change, and stratagems can be logged by name (remembered per faction as one-tap buttons)
+- Each player's Force Disposition and Primary Mission
+- Every score records how it was scored (for example "Held 2 objectives +5"). Reasons you type are remembered per mission as one-tap buttons on this device.
+- Tactical secondaries (cards stay in hand until scored or discarded) or Fixed secondaries
+- 11th edition caps: Primary and Secondary each max 15 VP per battle round and 45 VP per game, 20 VP per Fixed Secondary, plus 10 VP for a Battle Ready army
+- End-of-game summary with per-round scores and every mission played
+- The game is saved in the browser, so reloading the page keeps the scores
 
+## Sharing the game
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+Open the app on the device you'll keep score on and press **Stream**. It offers two links:
+
+- **OBS overlay:** in OBS, add a **Browser Source** and paste this link.
+- **Stats page:** share this with viewers. It works on phones, tablets and PCs, and shows totals, CP left, factions, who went first, what was scored each round and how, CP gained and spent each round and on which stratagems, a score-over-time chart, each player's missions, and how many VP each player can still score. Viewers can set a **stream delay** so the page doesn't reveal scores before the video stream shows them.
+
+The links stay the same when you reload the scoreboard, so you only need to share them once. If a link ends up somewhere it shouldn't, press **New links** in the same dialog: the old links stop working straight away, and you share the new ones. The overlay reconnects on its own if the connection drops, and shows a notice while it's reconnecting. Keep only one scoreboard tab open: two tabs in the same browser share a stream link and will compete for it.
+
+The connection uses the free public [PeerJS](https://peerjs.com/) server to find the scoreboard, then streams directly from the scoreboard device to each viewer. That suits a small audience: every viewer adds load to the scoreboard device, and very strict networks that block direct connections can stop a viewer from connecting.
+
+## Run locally
+
+**Prerequisites:** Node.js 20+
+
+1. Install dependencies: `npm install`
+2. Start the dev server: `npm run dev`
+
+`npm run build` type-checks and builds the site into `dist/`.
+
+## Deploy
+
+Every push to `main` builds the app and deploys it to GitHub Pages (`.github/workflows/deploy.yml`). The `base` in `vite.config.ts` must match the repository name.
+
+This app was started in Google AI Studio: https://ai.studio/apps/drive/13pSEkm10M3yNAouPxoJVxN2fw9g-taDJ
