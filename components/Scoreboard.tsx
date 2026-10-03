@@ -1,111 +1,41 @@
 
-import React, { useReducer, useState, useCallback, useEffect, useRef } from 'react';
+import React, { useReducer, useState, useCallback, useEffect, useMemo } from 'react';
 import PlayerCard from './PlayerCard';
 import GameControls from './GameControls';
 import GameSummary from './GameSummary';
-import { Peer, DataConnection } from 'peerjs';
-import { SUMMARY_ROUND, createInitialGameState, gameReducer, isGameState } from '../gameReducer';
+import type { GameState } from '../types';
+import { SUMMARY_ROUND, createInitialGameState, gameReducer } from '../gameReducer';
+import { getHostId, loadSavedGame, saveGame } from '../storage';
+import { describeHostStatus, describeViewerStatus, useHostBroadcast, useViewerSync } from '../peerSync';
+
+const TONE_TEXT_CLASS = {
+  good: 'text-emerald-400',
+  warn: 'text-amber-400',
+  bad: 'text-red-400',
+};
 
 const Scoreboard: React.FC = () => {
-  const [gameState, dispatch] = useReducer(gameReducer, undefined, createInitialGameState);
-  const [isReadOnly, setIsReadOnly] = useState(false);
+  // A `watch` link opens the read-only overlay for that host; otherwise this is the host.
+  const watchId = useMemo(() => new URLSearchParams(window.location.search).get('watch') || null, []);
+  const isReadOnly = watchId !== null;
+  const hostId = useMemo(() => (isReadOnly ? null : getHostId()), [isReadOnly]);
+
+  const [gameState, dispatch] = useReducer(
+    gameReducer,
+    undefined,
+    () => (isReadOnly ? null : loadSavedGame()) ?? createInitialGameState(),
+  );
   const [showBroadcastModal, setShowBroadcastModal] = useState(false);
-  const [peerId, setPeerId] = useState<string>('');
   const [copySuccess, setCopySuccess] = useState(false);
-  
-  // PeerJS refs
-  const peerRef = useRef<Peer | null>(null);
-  const connectionsRef = useRef<DataConnection[]>([]);
-  // Latest state, for sending to viewers from inside long-lived PeerJS callbacks
-  const gameStateRef = useRef(gameState);
-  gameStateRef.current = gameState;
-  
-  // Initialize PeerJS
+
   useEffect(() => {
-    // Check for watch param
-    const params = new URLSearchParams(window.location.search);
-    const watchId = params.get('watch');
-    
-    // Cleanup function
-    const cleanup = () => {
-      if (peerRef.current) {
-        peerRef.current.destroy();
-        peerRef.current = null;
-      }
-      connectionsRef.current = [];
-    };
-
-    if (watchId) {
-      // CLIENT MODE (OBS/Viewer)
-      setIsReadOnly(true);
-      
-      const peer = new Peer();
-      peerRef.current = peer;
-      
-      peer.on('open', () => {
-        console.log('Connected to peer server as client');
-        const conn = peer.connect(watchId);
-        
-        conn.on('open', () => {
-          console.log('Connected to host');
-        });
-        
-        conn.on('data', (data: unknown) => {
-          if (isGameState(data)) {
-            dispatch({ type: 'sync', state: data });
-          } else {
-            console.warn('Ignoring game state from an incompatible scoreboard version');
-          }
-        });
-        
-        conn.on('close', () => {
-          console.log('Connection closed');
-        });
-      });
-      
-      peer.on('error', (err) => {
-        console.error('Peer error:', err);
-      });
-
-    } else {
-      // HOST MODE (Tablet/Controller)
-      const peer = new Peer();
-      peerRef.current = peer;
-      
-      peer.on('open', (id) => {
-        console.log('My peer ID is: ' + id);
-        setPeerId(id);
-      });
-      
-      peer.on('connection', (conn) => {
-        console.log('Client connected');
-        connectionsRef.current.push(conn);
-        
-        // Send current state immediately upon connection
-        conn.on('open', () => {
-          conn.send(gameStateRef.current);
-        });
-        
-        conn.on('close', () => {
-          connectionsRef.current = connectionsRef.current.filter(c => c !== conn);
-        });
-      });
-    }
-    
-    return cleanup;
-  }, []); // Run once on mount
-
-  // Sync state to clients when it changes (Host only)
-  useEffect(() => {
-    if (!isReadOnly && connectionsRef.current.length > 0) {
-      connectionsRef.current.forEach(conn => {
-        if (conn.open) {
-          conn.send(gameState);
-        }
-      });
-    }
+    if (!isReadOnly) saveGame(gameState);
   }, [gameState, isReadOnly]);
 
+  const handleSync = useCallback((state: GameState) => dispatch({ type: 'sync', state }), []);
+  const host = useHostBroadcast(hostId, gameState);
+  const viewerStatus = useViewerSync(watchId, handleSync);
+  const connection = isReadOnly ? describeViewerStatus(viewerStatus) : describeHostStatus(host.status, host.viewers);
 
   const handleRoundChange = useCallback((delta: number) => {
     dispatch({ type: 'changeRound', delta });
@@ -124,7 +54,7 @@ const Scoreboard: React.FC = () => {
 
   const getBroadcastUrl = () => {
     const url = new URL(window.location.href);
-    url.searchParams.set('watch', peerId);
+    url.searchParams.set('watch', hostId ?? '');
     return url.toString();
   };
 
@@ -137,7 +67,7 @@ const Scoreboard: React.FC = () => {
   return (
     <>
       <div 
-        className="w-full max-w-5xl bg-slate-900/80 p-4 rounded-xl shadow-2xl border-4 border-slate-700/50 relative"
+        className="w-full max-w-5xl bg-slate-900/80 p-2 sm:p-4 rounded-xl shadow-2xl border-4 border-slate-700/50 relative"
         style={{
           backgroundImage: 'radial-gradient(circle at center, rgba(30, 41, 59, 0.5) 0%, rgba(15, 23, 42, 0.9) 100%)',
         }}
@@ -148,6 +78,7 @@ const Scoreboard: React.FC = () => {
           onReset={handleReset}
           readOnly={isReadOnly}
           onBroadcastClick={handleBroadcastClick}
+          connection={connection}
         />
         {gameState.round < SUMMARY_ROUND ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -178,19 +109,20 @@ const Scoreboard: React.FC = () => {
             <h3 className="text-xl font-orbitron text-amber-400 mb-4 text-center">Stream to OBS</h3>
             <p className="text-gray-300 mb-4 text-sm">
               Copy the link below and paste it into a <strong className="text-white">Browser Source</strong> in OBS. 
-              The view will update in real-time as you change scores here.
+              The view will update in real-time as you change scores here. The link stays the same when you reload
+              this page, so you only need to add it to OBS once.
             </p>
+            <p className={`mb-4 text-sm font-bold ${TONE_TEXT_CLASS[connection.tone]}`}>● {connection.label}</p>
             
             <div className="flex gap-2 mb-4">
               <input 
                 type="text" 
                 readOnly 
-                value={peerId ? getBroadcastUrl() : 'Generating ID...'} 
+                value={getBroadcastUrl()} 
                 className="bg-slate-900 border border-slate-700 text-gray-300 text-sm rounded-lg block w-full p-2.5 font-mono"
               />
               <button 
                 onClick={copyToClipboard}
-                disabled={!peerId}
                 className="bg-amber-600 hover:bg-amber-500 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200"
               >
                 {copySuccess ? 'Copied!' : 'Copy'}
