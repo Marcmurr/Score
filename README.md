@@ -4,28 +4,30 @@
 
 # 40k Stream Scoreboard
 
-A Warhammer 40,000 (11th edition) scoreboard for live streams. Keep score on a tablet or phone, and show the same board in OBS, updating in real time.
+A Warhammer 40,000 (11th edition) scoreboard for live streams. Keep score on a tablet or phone, show the board in OBS, and give viewers a live stats page, all updating in real time.
 
 Live app: https://marcmurr.github.io/Score/
 
 ## Features
 
-- Command Points, and Primary and Secondary VP for each battle round
+- Command Points, faction, and who goes first
 - Each player's Force Disposition and Primary Mission
+- Every score records how it was scored (for example "Held 2 objectives +5"). Reasons you type are remembered per mission as one-tap buttons on this device.
 - Tactical secondaries (cards stay in hand until scored or discarded) or Fixed secondaries
 - 11th edition caps: Primary and Secondary each max 15 VP per battle round and 45 VP per game, 20 VP per Fixed Secondary, plus 10 VP for a Battle Ready army
 - End-of-game summary with per-round scores and every mission played
 - The game is saved in the browser, so reloading the page keeps the scores
 
-## Streaming to OBS
+## Sharing the game
 
-1. Open the app on the device you'll keep score on.
-2. Press **Stream** and copy the link.
-3. In OBS, add a **Browser Source** and paste the link.
+Open the app on the device you'll keep score on and press **Stream**. It offers two links:
 
-The link stays the same when you reload the scoreboard, so you only need to add it to OBS once. The overlay reconnects on its own if the connection drops, and shows a notice while it's reconnecting. Keep only one scoreboard tab open: two tabs in the same browser share a stream link and will compete for it.
+- **OBS overlay:** in OBS, add a **Browser Source** and paste this link.
+- **Stats page:** share this with viewers. It works on phones, tablets and PCs, and shows totals, CP left, factions, who went first, what was scored each round and how, a score-over-time chart, each player's missions, and how many VP each player can still score. Viewers can set a **stream delay** so the page doesn't reveal scores before the video stream shows them.
 
-The connection uses the free public [PeerJS](https://peerjs.com/) server to find the scoreboard, then streams directly between the two browsers. Very strict networks that block direct connections can stop the overlay from connecting.
+The links stay the same when you reload the scoreboard, so you only need to share them once. The overlay reconnects on its own if the connection drops, and shows a notice while it's reconnecting. Keep only one scoreboard tab open: two tabs in the same browser share a stream link and will compete for it.
+
+The connection uses the free public [PeerJS](https://peerjs.com/) server to find the scoreboard, then streams directly from the scoreboard device to each viewer. That suits a small audience: every viewer adds load to the scoreboard device, and very strict networks that block direct connections can stop a viewer from connecting.
 
 ## Run locally
 

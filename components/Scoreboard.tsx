@@ -7,6 +7,14 @@ import type { GameState } from '../types';
 import { SUMMARY_ROUND, createInitialGameState, gameReducer } from '../gameReducer';
 import { getHostId, loadSavedGame, saveGame } from '../storage';
 import { describeHostStatus, describeViewerStatus, useHostBroadcast, useViewerSync } from '../peerSync';
+import { FACTIONS } from '../data/factions';
+
+type ShareLink = 'overlay' | 'stats';
+
+const SHARE_LINKS: { id: ShareLink; title: string; description: string }[] = [
+  { id: 'overlay', title: 'OBS overlay', description: 'Paste into a Browser Source in OBS.' },
+  { id: 'stats', title: 'Stats page', description: 'Share with viewers: live round-by-round scores on phone, tablet or PC.' },
+];
 
 const TONE_TEXT_CLASS = {
   good: 'text-emerald-400',
@@ -26,7 +34,7 @@ const Scoreboard: React.FC = () => {
     () => (isReadOnly ? null : loadSavedGame()) ?? createInitialGameState(),
   );
   const [showBroadcastModal, setShowBroadcastModal] = useState(false);
-  const [copySuccess, setCopySuccess] = useState(false);
+  const [copiedLink, setCopiedLink] = useState<ShareLink | null>(null);
 
   useEffect(() => {
     if (!isReadOnly) saveGame(gameState);
@@ -49,18 +57,20 @@ const Scoreboard: React.FC = () => {
   
   const handleBroadcastClick = () => {
     setShowBroadcastModal(true);
-    setCopySuccess(false);
+    setCopiedLink(null);
   };
 
-  const getBroadcastUrl = () => {
+  const getShareUrl = (link: ShareLink) => {
     const url = new URL(window.location.href);
+    url.search = '';
     url.searchParams.set('watch', hostId ?? '');
+    if (link === 'stats') url.searchParams.set('view', 'stats');
     return url.toString();
   };
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(getBroadcastUrl()).then(() => {
-      setCopySuccess(true);
+  const copyToClipboard = (link: ShareLink) => {
+    navigator.clipboard.writeText(getShareUrl(link)).then(() => {
+      setCopiedLink(link);
     });
   };
 
@@ -86,6 +96,7 @@ const Scoreboard: React.FC = () => {
               player={gameState.player1} 
               playerKey="player1"
               round={gameState.round}
+              goesFirst={gameState.firstPlayer === 'player1'}
               dispatch={dispatch}
               readOnly={isReadOnly}
             />
@@ -93,6 +104,7 @@ const Scoreboard: React.FC = () => {
               player={gameState.player2} 
               playerKey="player2"
               round={gameState.round}
+              goesFirst={gameState.firstPlayer === 'player2'}
               dispatch={dispatch}
               readOnly={isReadOnly}
             />
@@ -102,32 +114,44 @@ const Scoreboard: React.FC = () => {
         )}
       </div>
 
+      {!isReadOnly && (
+        <datalist id="faction-suggestions">
+          {FACTIONS.map(faction => <option key={faction} value={faction} />)}
+        </datalist>
+      )}
+
       {/* Broadcast Modal */}
       {showBroadcastModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-slate-800 border-2 border-slate-600 rounded-lg p-6 max-w-lg w-full shadow-2xl">
-            <h3 className="text-xl font-orbitron text-amber-400 mb-4 text-center">Stream to OBS</h3>
+            <h3 className="text-xl font-orbitron text-amber-400 mb-4 text-center">Share the game</h3>
             <p className="text-gray-300 mb-4 text-sm">
-              Copy the link below and paste it into a <strong className="text-white">Browser Source</strong> in OBS. 
-              The view will update in real-time as you change scores here. The link stays the same when you reload
-              this page, so you only need to add it to OBS once.
+              Both views update in real time as you change scores here. The links stay the same when you reload
+              this page, so you only need to share them once.
             </p>
             <p className={`mb-4 text-sm font-bold ${TONE_TEXT_CLASS[connection.tone]}`}>● {connection.label}</p>
-            
-            <div className="flex gap-2 mb-4">
-              <input 
-                type="text" 
-                readOnly 
-                value={getBroadcastUrl()} 
-                className="bg-slate-900 border border-slate-700 text-gray-300 text-sm rounded-lg block w-full p-2.5 font-mono"
-              />
-              <button 
-                onClick={copyToClipboard}
-                className="bg-amber-600 hover:bg-amber-500 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200"
-              >
-                {copySuccess ? 'Copied!' : 'Copy'}
-              </button>
-            </div>
+
+            {SHARE_LINKS.map(link => (
+              <div key={link.id} className="mb-4">
+                <p className="text-sm font-bold text-white">{link.title}</p>
+                <p className="text-xs text-gray-400 mb-1">{link.description}</p>
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    readOnly 
+                    aria-label={`${link.title} link`}
+                    value={getShareUrl(link.id)} 
+                    className="bg-slate-900 border border-slate-700 text-gray-300 text-sm rounded-lg block w-full p-2.5 font-mono"
+                  />
+                  <button 
+                    onClick={() => copyToClipboard(link.id)}
+                    className="bg-amber-600 hover:bg-amber-500 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200"
+                  >
+                    {copiedLink === link.id ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+            ))}
 
             <div className="flex justify-center">
               <button 

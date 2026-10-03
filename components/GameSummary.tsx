@@ -10,7 +10,7 @@ import {
   primaryTotal,
   secondaryInRound,
   secondaryTotal,
-  sumVP,
+  sumScores,
   totalScore,
 } from '../scoring';
 
@@ -26,13 +26,13 @@ const secondaryRows = (player: PlayerState) =>
         .map(slot => ({
           key: slot.missionId!,
           name: getSecondaryName(slot.missionId),
-          vp: sumVP(slot.vp),
+          vp: sumScores(slot.scores),
           note: `Fixed · max ${FIXED_SECONDARY_CAP}`,
         }))
     : player.tacticalSecondaries.map(card => ({
         key: card.missionId,
         name: getSecondaryName(card.missionId),
-        vp: sumVP(card.vp),
+        vp: sumScores(card.scores),
         note:
           card.status === 'scored'
             ? `Scored R${card.resolvedRound}`

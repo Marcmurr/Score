@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Peer, type DataConnection } from 'peerjs';
 import type { GameState } from './types';
-import { isGameState } from './gameReducer';
+import { parseGameState } from './gameReducer';
 
 // The host sends the full game state on every change and as a heartbeat, so a
 // viewer can spot a dead connection even when WebRTC never reports it closed.
@@ -143,8 +143,9 @@ export const useViewerSync = (watchId: string | null, onState: (state: GameState
         if (conn !== c) return;
         lastHeardAt = Date.now();
         setStatus('connected');
-        if (isGameState(data)) {
-          onStateRef.current(data);
+        const state = parseGameState(data);
+        if (state) {
+          onStateRef.current(state);
         } else {
           console.warn('Ignoring game state from an incompatible scoreboard version');
         }

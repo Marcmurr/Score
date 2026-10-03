@@ -1,6 +1,6 @@
 
 import type { GameState } from './types';
-import { isGameState } from './gameReducer';
+import { parseGameState } from './gameReducer';
 
 // Browser storage can be unavailable (private windows, blocked site data), so
 // every access is wrapped and the app keeps working without it.
@@ -11,8 +11,7 @@ const HOST_ID_KEY = 'score:hostId';
 export const loadSavedGame = (): GameState | null => {
   try {
     const raw = localStorage.getItem(SAVED_GAME_KEY);
-    const data: unknown = raw ? JSON.parse(raw) : null;
-    return isGameState(data) ? data : null;
+    return raw ? parseGameState(JSON.parse(raw)) : null;
   } catch {
     return null;
   }

@@ -1,18 +1,19 @@
 
 import React from 'react';
-import type { PlayerKey, PlayerState, SecondaryMode, TacticalSecondary } from '../types';
-import type { GameAction } from '../gameReducer';
-import Stepper from './ui/Stepper';
+import type { PlayerKey, PlayerState, ScoreTarget, SecondaryMode, TacticalSecondary } from '../types';
+import { newScoreEntry, type GameAction } from '../gameReducer';
+import ScoreControl from './ScoreControl';
 import { FIXED_SECONDARY_MISSIONS, SECONDARY_MISSIONS, getSecondaryName } from '../data/missions';
 import {
   FIXED_SECONDARY_CAP,
   SECONDARY_GAME_CAP,
   SECONDARY_ROUND_CAP,
+  headroom,
   secondaryInRound,
   secondaryTotal,
-  sumVP,
-  vpIn,
+  sumScores,
 } from '../scoring';
+import { secondaryPresetKey } from '../scoringPresets';
 
 interface SecondaryMissionsProps {
   player: PlayerState;
@@ -42,14 +43,14 @@ const SecondaryMissions: React.FC<SecondaryMissionsProps> = ({ player, playerKey
         ? player.fixedSecondaries.filter(slot => slot.missionId).map(slot => ({
             key: slot.missionId!,
             name: getSecondaryName(slot.missionId),
-            note: `${sumVP(slot.vp)}/${FIXED_SECONDARY_CAP}`,
+            note: `${sumScores(slot.scores)}/${FIXED_SECONDARY_CAP}`,
           }))
         : tacticalCards
             .filter(card => !(card.resolvedRound === round && card.status === 'discarded'))
             .map(card => ({
               key: card.missionId,
               name: getSecondaryName(card.missionId),
-              note: card.resolvedRound === round && card.status === 'scored' ? `✓ ${vpIn(card.vp, round)}VP` : null,
+              note: card.resolvedRound === round && card.status === 'scored' ? `✓ ${sumScores(card.scores, round)}VP` : null,
             }));
 
     return (
@@ -75,6 +76,18 @@ const SecondaryMissions: React.FC<SecondaryMissionsProps> = ({ player, playerKey
 
   const drawnIds = new Set(player.tacticalSecondaries.map(c => c.missionId));
   const deck = SECONDARY_MISSIONS.filter(m => !drawnIds.has(m.id));
+
+  const scoreControl = (target: ScoreTarget, missionId: string, scores: PlayerState['primaryScores']) => (
+    <ScoreControl
+      label={getSecondaryName(missionId)}
+      scores={scores}
+      round={round}
+      headroom={headroom(player, target, round)}
+      presetKey={secondaryPresetKey(missionId)}
+      onAdd={(vp, reason) => dispatch({ type: 'addScore', player: playerKey, target, entry: newScoreEntry(round, vp, reason) })}
+      onRemove={(entryId) => dispatch({ type: 'removeScore', player: playerKey, target, entryId })}
+    />
+  );
 
   return (
     <div className="flex flex-col gap-3 p-3 bg-slate-900/50 rounded-md">
@@ -104,7 +117,6 @@ const SecondaryMissions: React.FC<SecondaryMissionsProps> = ({ player, playerKey
         player.fixedSecondaries.map((slot, index) => {
           const slotIndex = index as 0 | 1;
           const otherMissionId = player.fixedSecondaries[slotIndex === 0 ? 1 : 0].missionId;
-          const name = getSecondaryName(slot.missionId);
           return (
             <div key={index} className="flex flex-col gap-2 bg-slate-800 p-2 rounded-md">
               <select
@@ -119,15 +131,13 @@ const SecondaryMissions: React.FC<SecondaryMissionsProps> = ({ player, playerKey
                 ))}
               </select>
               {slot.missionId && (
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-400">{sumVP(slot.vp)}/{FIXED_SECONDARY_CAP} VP from this mission</span>
-                  <Stepper
-                    size="sm"
-                    value={vpIn(slot.vp, round)}
-                    label={`${name} VP`}
-                    onChange={(delta) => dispatch({ type: 'changeSecondaryVP', player: playerKey, target: { kind: 'fixed', slot: slotIndex }, round, delta })}
-                  />
-                </div>
+                <>
+                  <p className="text-xs text-gray-400">
+                    <span className="font-orbitron text-white">{sumScores(slot.scores, round)}</span> VP this round ·{' '}
+                    {sumScores(slot.scores)}/{FIXED_SECONDARY_CAP} VP from this mission
+                  </p>
+                  {scoreControl({ kind: 'fixed', slot: slotIndex }, slot.missionId, slot.scores)}
+                </>
               )}
             </div>
           );
@@ -148,12 +158,8 @@ const SecondaryMissions: React.FC<SecondaryMissionsProps> = ({ player, playerKey
                     {resolvedThisRound ? (card.status === 'scored' ? 'Scored this round' : 'Discarded this round') : `In hand since round ${card.drawnRound}`}
                   </p>
                 </div>
-                <Stepper
-                  size="sm"
-                  value={vpIn(card.vp, round)}
-                  label={`${name} VP`}
-                  onChange={(delta) => dispatch({ type: 'changeSecondaryVP', player: playerKey, target: { kind: 'tactical', missionId: card.missionId }, round, delta })}
-                />
+                <span className="font-orbitron text-xl text-white" aria-label={`${name} VP this round`}>{sumScores(card.scores, round)}</span>
+                {card.status !== 'discarded' && scoreControl({ kind: 'tactical', missionId: card.missionId }, card.missionId, card.scores)}
                 <div className="flex gap-1">
                   {resolvedThisRound ? (
                     <button
@@ -176,7 +182,7 @@ const SecondaryMissions: React.FC<SecondaryMissionsProps> = ({ player, playerKey
                       >
                         Discard
                       </button>
-                      {sumVP(card.vp) === 0 && (
+                      {card.scores.length === 0 && (
                         <button
                           onClick={() => dispatch({ type: 'returnTactical', player: playerKey, missionId: card.missionId })}
                           aria-label={`Return ${name} to the deck`}
